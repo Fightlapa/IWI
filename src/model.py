@@ -8,7 +8,7 @@ from keras.optimizers import TFOptimizer
 import tensorflow as tf
 
 
-class Model:
+class TrainingModel:
     def __init__(self):
         self.model = None
 
@@ -31,6 +31,7 @@ class Model:
         optimizer = TFOptimizer(tf.train.AdagradOptimizer(0.1))
         model = Model(inputs=[target_input, context_input], outputs=output)
         model.compile(loss="binary_crossentropy", optimizer=optimizer)
+        model.summary()
         self.model = model
 
     # TODO

@@ -2,7 +2,6 @@ import os
 import numpy as np
 import pandas as pd
 
-
 def read_input_file(path, word_separator=" "):
     if os.path.isdir(path):
         raise NameError('Path is folder')
@@ -14,12 +13,20 @@ def read_input_file(path, word_separator=" "):
         raise NameError('Not a txt file')
 
     word_sequence = []
-    with open(path) as file:
-        for line in file:
-            for word in line.split(word_separator):
-                word_sequence.append(word.strip())
+    try:
+        with open(path) as file:
+            for line in file:
+                for word in line.split(word_separator):
+                    word_sequence.append(word.strip())
+    except Exception:
+        with open(path, encoding="utf-8") as file:
+            for line in file:
+                for word in line.split(word_separator):
+                    word = word.strip()
+                    if word != '':
+                        word_sequence.append(word.lower())
 
-    return word_sequence
+    return word_sequence[1:]
 
 
 def create_vocabulary(word_sequence):
@@ -50,3 +57,4 @@ def write_output_embeddings(path, index_to_word, target_layer):
         np_index[index] = word
     df = pd.DataFrame(data=target_layer, index=np_index)
     df.to_csv(path, float_format="%.4f", header=False)
+

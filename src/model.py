@@ -21,6 +21,17 @@ def skip_gram_iterator(sequence, window_size, negative_samples, seed):
     while True:
         window_start = max(0, i - window_size)
         window_end = min(sequence_length, i + window_size + 1)
+
+        #Now eliminate dots
+        for j in range(window_start, i):
+            if sequence[j] == -1:
+                window_start = j + 1
+
+        for j in range(i, window_end):
+            if sequence[j] == -1:
+                window_end = j - 1
+
+
         for j in range(window_start, window_end):
             if i != j:
                 yield (sequence[i], sequence[j], 1)
@@ -28,12 +39,20 @@ def skip_gram_iterator(sequence, window_size, negative_samples, seed):
         for negative in range(negative_samples):
             random_float = random.random()
             j = int(random_float * sequence_length)
+            while sequence[j] == -1:
+                random_float = random.random()
+                j = int(random_float * sequence_length)
             yield (sequence[i], sequence[j], 0)
 
         i += 1
         if i == sequence_length:
           epoch += 1
           i = 0
+        while sequence[i] == -1:
+            i += 1
+            if i == sequence_length:
+                epoch += 1
+                i = 0
 
 def create_batch_iterator(sequence, window_size, negative_samples, batch_size, seed):
     """ An iterator which returns training instances in batches """
@@ -41,6 +60,7 @@ def create_batch_iterator(sequence, window_size, negative_samples, batch_size, s
     words = np.empty(shape=batch_size)#, dtype=DTYPE)
     contexts = np.empty(shape=batch_size)#, dtype=DTYPE)
     labels = np.empty(shape=batch_size)#, dtype=DTYPE)
+
     while True:
         for i in range(batch_size):
           word, context, label = next(iterator)

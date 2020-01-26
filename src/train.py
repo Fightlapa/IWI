@@ -11,15 +11,10 @@ def program():
     argument_parser = argparse.ArgumentParser(description='Simple word2vec implementation')
     # input, output
     argument_parser.add_argument('--corpusFile', type=str, help='Path to txt file with corpus', required=True)
+    argument_parser.add_argument('--inputFile', type=str, help='Path to file with input, already trained embeddings')
+    argument_parser.add_argument('--inputContextFile', type=str, help='Path to file with input, already trained context')
     argument_parser.add_argument('--outputFile', type=str, help='Path to file with output embeddings')
     argument_parser.add_argument('--outputContextFile', type=str, help='Path to file with output context embeddings')
-
-    # pretrained embeddings
-    argument_parser.add_argument('--inputFile', type=str, help='Path to file with output embeddings.'
-                                                               ' Both target and context input files must be provided')
-    argument_parser.add_argument('--inputContextFile', type=str, help='Path to file with output context embeddings'
-                                                                      ' Both target and context input files must'
-                                                                      ' be provided')
 
     # skip gram
     argument_parser.add_argument('--windowSize', type=int, help='Size of context words near target word', default=2)
@@ -32,14 +27,15 @@ def program():
     args = argument_parser.parse_args()
 
     # process input data
-    word_sequence = data_processing.read_input_file(args.corpusFile)
-    word_to_index, index_to_word, word_unigram = data_processing.create_vocabulary(word_sequence)
+    existing_vocabulary, existing_embeddings, existing_context = data_processing.read_input_file(args.inputFile, args.inputContextFile)
+    word_sequence = data_processing.read_corpus_file(args.corpusFile)
+    word_to_index, index_to_word, word_unigram = data_processing.create_vocabulary(word_sequence, existing_vocabulary)
     vocabulary_size = len(word_to_index)
     indexed_sequence_array = data_processing.transform_to_index_array(word_sequence, word_to_index)
 
     # create model
     training_model = TrainingModel(vocabulary_size, args.vectorDim, word_unigram, word_to_index)
-    training_model.build_model()
+    training_model.build_model(existing_embeddings, existing_context)
 
     # train model
     training_model.train_model(indexed_sequence_array, args.windowSize, args.batchSize, args.negativeSamples,

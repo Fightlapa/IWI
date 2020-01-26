@@ -19,7 +19,7 @@ class TrainingModel:
         self.word_unigram = word_unigram
         self.word_to_index = word_to_index
 
-    def build_model(self):
+    def build_model(self, existing_embedding_weights, existing_context_weights):
         stddev = 1.0 / self.vector_dim
         initializer = RandomNormal(mean=0.0, stddev=stddev, seed=None)
 
@@ -38,6 +38,20 @@ class TrainingModel:
         optimizer = TFOptimizer(tf.train.AdagradOptimizer(0.1))
         model = Model(inputs=[target_input, context_input], outputs=output)
         model.compile(loss="binary_crossentropy", optimizer=optimizer)
+
+
+        embedding_weights = model.get_layer("target_layer").get_weights()
+        context_weights = model.get_layer("context_layer").get_weights()
+
+        for i in range(0, len(existing_embedding_weights)):
+            embedding_weights[0][i] = existing_embedding_weights[i]
+
+        for i in range(0, len(existing_context_weights)):
+            context_weights[0][i] = existing_context_weights[i]
+
+        model.get_layer("target_layer").set_weights(embedding_weights)
+        model.get_layer("context_layer").set_weights(context_weights)
+
         model.summary()
         self.model = model
 

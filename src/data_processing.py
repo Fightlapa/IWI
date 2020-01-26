@@ -37,6 +37,7 @@ def extract_words(file, word_separator):
 
 def create_vocabulary(word_sequence):
     word_dict = dict()
+    word_unigram = list()
     # extract unique words in corpus
     for word in word_sequence:
         if not word.isalpha():
@@ -44,6 +45,7 @@ def create_vocabulary(word_sequence):
         if word != '':
             assert word.isalpha()
             word_dict[word] = True
+            word_unigram.append(word)
 
     # assign index values to vocabulary
     word_to_index = dict()
@@ -52,7 +54,7 @@ def create_vocabulary(word_sequence):
         word_to_index[word] = index
         index_to_word[index] = word
 
-    return word_to_index, index_to_word
+    return word_to_index, index_to_word, word_unigram
 
 
 def transform_to_index_array(word_sequence, word_to_index):

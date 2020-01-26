@@ -11,69 +11,13 @@ import numpy as np
 
 import random
 
-
-def skip_gram_iterator(sequence, window_size, negative_samples, seed):
-    """ An iterator which at each step returns a tuple of (word, context, label) """
-    sequence = np.asarray(sequence, dtype=np.int)
-    sequence_length = sequence.shape[0]
-    epoch = 0
-    i = 0
-    while True:
-        window_start = max(0, i - window_size)
-        window_end = min(sequence_length, i + window_size + 1)
-
-        #Now eliminate dots
-        for j in range(window_start, i):
-            if sequence[j] == -1:
-                window_start = j + 1
-
-        for j in range(i, window_end):
-            if sequence[j] == -1:
-                window_end = j - 1
-
-
-        for j in range(window_start, window_end):
-            if i != j:
-                yield (sequence[i], sequence[j], 1)
-
-        for negative in range(negative_samples):
-            random_float = random.random()
-            j = int(random_float * sequence_length)
-            while sequence[j] == -1:
-                random_float = random.random()
-                j = int(random_float * sequence_length)
-            yield (sequence[i], sequence[j], 0)
-
-        i += 1
-        if i == sequence_length:
-          epoch += 1
-          i = 0
-        while sequence[i] == -1:
-            i += 1
-            if i == sequence_length:
-                epoch += 1
-                i = 0
-
-def create_batch_iterator(sequence, window_size, negative_samples, batch_size, seed):
-    """ An iterator which returns training instances in batches """
-    iterator = skip_gram_iterator(sequence, window_size, negative_samples, seed)
-    words = np.empty(shape=batch_size)#, dtype=DTYPE)
-    contexts = np.empty(shape=batch_size)#, dtype=DTYPE)
-    labels = np.empty(shape=batch_size)#, dtype=DTYPE)
-
-    while True:
-        for i in range(batch_size):
-          word, context, label = next(iterator)
-          words[i] = word
-          contexts[i] = context
-          labels[i] = label
-        yield ([words, contexts], labels)
-
 class TrainingModel:
-    def __init__(self, vocabulary_size, vector_dim):
+    def __init__(self, vocabulary_size, vector_dim, word_unigram, word_to_index):
         self.vocabulary_size = vocabulary_size
         self.vector_dim = vector_dim
         self.model = None
+        self.word_unigram = word_unigram
+        self.word_to_index = word_to_index
 
     def build_model(self):
         stddev = 1.0 / self.vector_dim
@@ -107,10 +51,64 @@ class TrainingModel:
                 window_size * 2.0) + sequence_length * negative_samples) / batch_size
 
         seed = 1
-        batch_iterator = create_batch_iterator(sequence, window_size, negative_samples, batch_size, seed)
+        batch_iterator = self.create_batch_iterator(sequence, window_size, negative_samples, batch_size, seed)
 
         self.model.fit_generator(batch_iterator,
                                  steps_per_epoch=approx_steps_per_epoch,
                                  epochs=epochs,
                                  class_weight=class_weight,
                                  max_queue_size=100)
+
+    def skip_gram_iterator(self, sequence, window_size, negative_samples, seed):
+        """ An iterator which at each step returns a tuple of (word, context, label) """
+        sequence = np.asarray(sequence, dtype=np.int)
+        sequence_length = sequence.shape[0]
+        epoch = 0
+        i = 0
+        while True:
+            window_start = max(0, i - window_size)
+            window_end = min(sequence_length, i + window_size + 1)
+
+            # Now eliminate dots
+            for j in range(window_start, i):
+                if sequence[j] == -1:
+                    window_start = j + 1
+
+            for j in range(i, window_end):
+                if sequence[j] == -1:
+                    window_end = j - 1
+
+            for j in range(window_start, window_end):
+                if i != j:
+                    yield (sequence[i], sequence[j], 1)
+
+            unigram_size = len(self.word_unigram)
+            for negative in range(negative_samples):
+                random_float = random.random()
+                j = int(random_float * unigram_size)
+                yield (sequence[i], self.word_to_index[self.word_unigram[j]], 0)
+
+            i += 1
+            if i == sequence_length:
+                epoch += 1
+                i = 0
+            while sequence[i] == -1:
+                i += 1
+                if i == sequence_length:
+                    epoch += 1
+                    i = 0
+
+    def create_batch_iterator(self, sequence, window_size, negative_samples, batch_size, seed):
+        """ An iterator which returns training instances in batches """
+        iterator = self.skip_gram_iterator(sequence, window_size, negative_samples, seed)
+        words = np.empty(shape=batch_size)  # , dtype=DTYPE)
+        contexts = np.empty(shape=batch_size)  # , dtype=DTYPE)
+        labels = np.empty(shape=batch_size)  # , dtype=DTYPE)
+
+        while True:
+            for i in range(batch_size):
+                word, context, label = next(iterator)
+                words[i] = word
+                contexts[i] = context
+                labels[i] = label
+            yield ([words, contexts], labels)

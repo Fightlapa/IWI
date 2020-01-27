@@ -5,6 +5,7 @@ from keras.layers.embeddings import Embedding
 from keras.layers.merge import dot
 from keras.models import Model
 from keras.optimizers import TFOptimizer
+from keras.metrics import binary_accuracy
 import keras.preprocessing.sequence as sequence
 import tensorflow as tf
 import numpy as np
@@ -37,8 +38,7 @@ class TrainingModel:
 
         optimizer = TFOptimizer(tf.train.AdagradOptimizer(0.1))
         model = Model(inputs=[target_input, context_input], outputs=output)
-        model.compile(loss="binary_crossentropy", optimizer=optimizer)
-
+        model.compile(loss="binary_crossentropy", optimizer=optimizer, metrics=[binary_accuracy])
 
         embedding_weights = model.get_layer("target_layer").get_weights()
         context_weights = model.get_layer("context_layer").get_weights()
@@ -79,9 +79,14 @@ class TrainingModel:
         sequence_length = sequence.shape[0]
         epoch = 0
         i = 0
+        positive_samples = dict()
+        was_negative_sampled = dict()
         while True:
             window_start = max(0, i - window_size)
             window_end = min(sequence_length, i + window_size + 1)
+
+            if epoch == 0 and sequence[i] not in was_negative_sampled:
+                was_negative_sampled[sequence[i]] = False
 
             # Now eliminate dots
             for j in range(window_start, i):
@@ -94,23 +99,36 @@ class TrainingModel:
 
             for j in range(window_start, window_end):
                 if i != j:
+                    if epoch == 0:
+                        if sequence[i] not in positive_samples:
+                            positive_samples[sequence[i]] = list()
+                        positive_samples[sequence[i]].append(sequence[j])
                     yield (sequence[i], sequence[j], 1)
 
-            unigram_size = len(self.word_unigram)
-            for negative in range(negative_samples):
-                random_float = random.random()
-                j = int(random_float * unigram_size)
-                yield (sequence[i], self.word_to_index[self.word_unigram[j]], 0)
+            if epoch > 0:
+                unigram_size = len(self.word_unigram)
+                if not was_negative_sampled[sequence[i]]:
+                    was_negative_sampled[sequence[i]] = True
+                    for negative in range(negative_samples):
+                        random_float = random.random()
+                        j = int(random_float * unigram_size)
+                        if sequence[i] in positive_samples:
+                            while self.word_to_index[self.word_unigram[j]] in positive_samples[sequence[i]]:
+                                random_float = random.random()
+                                j = int(random_float * unigram_size)
+                        yield (sequence[i], self.word_to_index[self.word_unigram[j]], 0)
 
             i += 1
             if i == sequence_length:
                 epoch += 1
                 i = 0
+                was_negative_sampled = dict.fromkeys(was_negative_sampled, False)
             while sequence[i] == -1:
                 i += 1
                 if i == sequence_length:
                     epoch += 1
                     i = 0
+                    was_negative_sampled = dict.fromkeys(was_negative_sampled, False)
 
     def create_batch_iterator(self, sequence, window_size, negative_samples, batch_size, seed):
         """ An iterator which returns training instances in batches """

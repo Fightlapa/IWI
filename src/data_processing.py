@@ -26,7 +26,7 @@ def read_corpus_file(path, word_separator=" "):
 
 def read_input_file(embeddings_path, context_path):
     if not embeddings_path or not context_path:
-        return [], []
+        return [], [], []
 
     vocabulary_emb, embedding_weights = get_weights(embeddings_path)
     vocabulary_con, context_weights = get_weights(context_path)
